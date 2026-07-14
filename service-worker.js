@@ -1,6 +1,5 @@
-const CACHE_NAME = 'alkawther-calc-v1';
+const CACHE_NAME = 'alkawther-calc-v2';
 const ASSETS_TO_CACHE = [
-  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -26,10 +25,22 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first for Firebase requests, cache-first for app shell
   const url = event.request.url;
+
   if(url.includes('firebaseio.com') || url.includes('googleapis.com') || url.includes('gstatic.com/firebasejs')){
-    return; // let these pass through to network normally
+    return;
+  }
+
+  const isHTML = event.request.mode === 'navigate' || url.endsWith('.html') || url.endsWith('/');
+  if(isHTML){
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
   }
 
   event.respondWith(
