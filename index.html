@@ -476,6 +476,43 @@
     text-align:center; font-size:13px; color:#8a94a1; padding: 26px 0;
   }
 
+  /* Install app banner */
+  .install-banner{
+    position:fixed;
+    bottom: 0; left:0; right:0;
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%);
+    color: var(--white);
+    padding: 14px 16px;
+    display:none;
+    align-items:center;
+    gap:12px;
+    z-index: 300;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.2);
+  }
+  .install-banner.show{ display:flex; }
+  .install-banner .install-icon{
+    width:40px; height:40px; border-radius:10px;
+    overflow:hidden; flex-shrink:0;
+    border: 1.5px solid var(--gold);
+  }
+  .install-banner .install-icon img{ width:100%; height:100%; object-fit:cover; }
+  .install-banner .install-text{ flex:1; }
+  .install-banner .install-text .t1{ font-size:13px; font-weight:700; }
+  .install-banner .install-text .t2{ font-size:11px; color:var(--silver); }
+  .install-banner .install-btn{
+    background: var(--gold);
+    color: var(--navy);
+    border:none; border-radius:8px;
+    padding: 9px 16px;
+    font-size:13px; font-weight:700;
+    white-space:nowrap;
+    cursor:pointer;
+  }
+  .install-banner .install-close{
+    background:none; border:none; color:var(--silver);
+    font-size:20px; padding:0 4px; cursor:pointer; line-height:1;
+  }
+
   /* View photos icon in options */
   .view-photos-btn{
     width: 30px; height:30px;
@@ -603,6 +640,16 @@
 </style>
 </head>
 <body>
+
+<div class="install-banner" id="installBanner">
+  <div class="install-icon"><img src="icon-192.png" alt=""></div>
+  <div class="install-text">
+    <div class="t1">ثبّت تطبيق مطبعة الكوثر</div>
+    <div class="t2">وصول أسرع من شاشتك الرئيسية</div>
+  </div>
+  <button class="install-btn" id="installBtn">تثبيت</button>
+  <button class="install-close" id="installCloseBtn">×</button>
+</div>
 <div class="page">
 
   <button class="gear-btn" id="gearBtn" title="إدارة الأسعار">
@@ -1502,6 +1549,41 @@
       });
     });
   }
+
+  /* ===== PWA: install app banner ===== */
+  const installBanner = document.getElementById('installBanner');
+  const installBtn = document.getElementById('installBtn');
+  const installCloseBtn = document.getElementById('installCloseBtn');
+  let deferredInstallPrompt = null;
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    if(isStandalone) return;
+    if(sessionStorage.getItem('installBannerDismissed')) return;
+    deferredInstallPrompt = e;
+    installBanner.classList.add('show');
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBanner.classList.remove('show');
+  });
+
+  installCloseBtn.addEventListener('click', () => {
+    installBanner.classList.remove('show');
+    sessionStorage.setItem('installBannerDismissed', '1');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBanner.classList.remove('show');
+    deferredInstallPrompt = null;
+  });
 </script>
 </body>
 </html>
