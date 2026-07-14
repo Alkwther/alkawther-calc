@@ -169,6 +169,8 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
+    flex-wrap: wrap;
+    row-gap: 8px;
     padding: 12px 14px;
     border: 1.5px solid var(--line);
     border-radius: 10px;
@@ -515,17 +517,22 @@
 
   /* View photos icon in options */
   .view-photos-btn{
-    width: 30px; height:30px;
-    border-radius: 50%;
+    height: 30px;
+    border-radius: 15px;
     border: none;
     background: var(--navy);
     color: var(--gold-light);
     display:flex; align-items:center; justify-content:center;
+    gap: 5px;
     cursor:pointer;
     margin: 0 8px;
+    padding: 0 12px;
     flex-shrink:0;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
   }
-  .view-photos-btn svg{ width:15px; height:15px; }
+  .view-photos-btn svg{ width:14px; height:14px; flex-shrink:0; }
 
   /* ===== Gallery Lightbox ===== */
   .gallery-overlay{
@@ -978,6 +985,7 @@
         </span>
         ${(p.imageCount > 0) ? `<button type="button" class="view-photos-btn" data-type="paper" data-id="${p.id}" title="عرض الصور">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+          مشاهدة الصور
         </button>` : ''}
         <span class="opt-price">${fmt(p.price)} د/صفحة</span>
       </label>
@@ -991,6 +999,7 @@
         </span>
         ${(c.imageCount > 0) ? `<button type="button" class="view-photos-btn" data-type="cover" data-id="${c.id}" title="عرض الصور">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+          مشاهدة الصور
         </button>` : ''}
         <span class="opt-price">${fmt(c.price)} دينار</span>
       </label>
