@@ -78,12 +78,12 @@
   /* Header */
   header{
     text-align:center;
-    padding: 6px 10px 20px;
+    padding: 6px 10px 12px;
   }
   .logo-wrap{
-    width: 108px;
-    height: 108px;
-    margin: 0 auto 14px;
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 10px;
     border-radius: 50%;
     overflow:hidden;
     box-shadow: 0 4px 16px rgba(13,31,67,0.25);
@@ -105,19 +105,19 @@
   }
   header h1{
     font-family: Georgia, 'Amiri', serif;
-    font-size: 25px;
-    margin: 0 0 4px;
+    font-size: 21px;
+    margin: 0 0 3px;
     color: var(--navy);
   }
   header p{
     margin:0;
-    font-size:13px;
+    font-size:12px;
     color:#5a6472;
   }
   .stamp-line{
     width:80px; height:3px;
     background: linear-gradient(90deg, var(--navy), var(--gold));
-    margin: 12px auto 0;
+    margin: 8px auto 0;
     border-radius:2px;
   }
 
@@ -125,18 +125,19 @@
   .hero-carousel{
     position: relative;
     width: 100%;
-    height: 180px;
+    height: 320px;
     border-radius: 16px;
     overflow: hidden;
     margin: 18px 0 4px;
     display: none;
+    background: var(--navy);
     box-shadow: 0 4px 16px rgba(13,31,67,0.15);
   }
   .hero-carousel.show{ display:block; }
   .hero-carousel img{
     position:absolute; inset:0;
     width:100%; height:100%;
-    object-fit: cover;
+    object-fit: contain;
     opacity: 0;
     transition: opacity 1.2s ease-in-out;
   }
