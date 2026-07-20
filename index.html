@@ -121,6 +121,47 @@
     border-radius:2px;
   }
 
+  /* Hero image carousel */
+  .hero-carousel{
+    position: relative;
+    width: 100%;
+    height: 180px;
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 18px 0 4px;
+    display: none;
+    box-shadow: 0 4px 16px rgba(13,31,67,0.15);
+  }
+  .hero-carousel.show{ display:block; }
+  .hero-carousel img{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.2s ease-in-out;
+  }
+  .hero-carousel img.active{ opacity: 1; }
+  .hero-carousel::after{
+    content:'';
+    position:absolute; inset:0;
+    background: linear-gradient(180deg, transparent 60%, rgba(13,31,67,0.35) 100%);
+    pointer-events:none;
+  }
+  .hero-dots{
+    position:absolute; bottom:10px; left:0; right:0;
+    display:flex; justify-content:center; gap:6px;
+    z-index:2;
+  }
+  .hero-dots span{
+    width:6px; height:6px; border-radius:50%;
+    background: rgba(255,255,255,0.5);
+    transition: all .3s;
+  }
+  .hero-dots span.active{
+    background: var(--gold);
+    width:18px; border-radius:4px;
+  }
+
   /* Cards */
   .card{
     background: var(--white);
@@ -673,6 +714,10 @@
     <div class="stamp-line"></div>
   </header>
 
+  <div class="hero-carousel" id="heroCarousel">
+    <div class="hero-dots" id="heroDots"></div>
+  </div>
+
   <div class="card">
     <h2>عدد صفحات الملزمة</h2>
     <input type="number" id="pages" min="1" placeholder="مثال: 40" inputmode="numeric">
@@ -781,6 +826,7 @@
     <div class="admin-tabs">
       <button class="admin-tab active" id="tabPricesBtn">الأسعار</button>
       <button class="admin-tab" id="tabBookingsBtn">الأساتذة الذين حجزوا</button>
+      <button class="admin-tab" id="tabHeroBtn">صور الخلفية</button>
     </div>
 
     <!-- Prices view -->
@@ -814,6 +860,21 @@
       <div class="admin-section">
         <h4>الحجوزات المسجّلة</h4>
         <div id="adminBookings"></div>
+      </div>
+    </div>
+
+    <!-- Hero images view -->
+    <div class="admin-panel-view" id="viewHero">
+      <div class="admin-section">
+        <h4>صور الخلفية (تظهر متحركة بأعلى الصفحة للأستاذ)</h4>
+        <div class="img-grid" id="heroImgGrid"></div>
+        <label class="upload-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zm7-16l-5 5h3v6h4v-6h3l-5-5z"/></svg>
+          إضافة صور
+          <input type="file" id="heroFileInput" accept="image/*" multiple>
+        </label>
+        <div class="upload-progress" id="heroUploadProgress">جاري معالجة الصور...</div>
+        <p class="upload-hint">الصور تتحرك تلقائياً واحدة بعد الأخرى. يفضل صور أفقية (landscape) لأفضل شكل.</p>
       </div>
     </div>
 
@@ -1171,24 +1232,23 @@
 
   const tabPricesBtn = document.getElementById('tabPricesBtn');
   const tabBookingsBtn = document.getElementById('tabBookingsBtn');
+  const tabHeroBtn = document.getElementById('tabHeroBtn');
   const viewPrices = document.getElementById('viewPrices');
   const viewBookings = document.getElementById('viewBookings');
+  const viewHero = document.getElementById('viewHero');
   const adminBookings = document.getElementById('adminBookings');
 
-  tabPricesBtn.addEventListener('click', () => {
-    tabPricesBtn.classList.add('active');
-    tabBookingsBtn.classList.remove('active');
-    viewPrices.classList.add('active');
-    viewBookings.classList.remove('active');
-  });
+  function activateTab(tab){
+    [tabPricesBtn, tabBookingsBtn, tabHeroBtn].forEach(b => b.classList.remove('active'));
+    [viewPrices, viewBookings, viewHero].forEach(v => v.classList.remove('active'));
+    if(tab === 'prices'){ tabPricesBtn.classList.add('active'); viewPrices.classList.add('active'); }
+    if(tab === 'bookings'){ tabBookingsBtn.classList.add('active'); viewBookings.classList.add('active'); renderBookingsList(); }
+    if(tab === 'hero'){ tabHeroBtn.classList.add('active'); viewHero.classList.add('active'); renderHeroAdminGrid(); }
+  }
 
-  tabBookingsBtn.addEventListener('click', () => {
-    tabBookingsBtn.classList.add('active');
-    tabPricesBtn.classList.remove('active');
-    viewBookings.classList.add('active');
-    viewPrices.classList.remove('active');
-    renderBookingsList();
-  });
+  tabPricesBtn.addEventListener('click', () => activateTab('prices'));
+  tabBookingsBtn.addEventListener('click', () => activateTab('bookings'));
+  tabHeroBtn.addEventListener('click', () => activateTab('hero'));
 
   function renderBookingsList(){
     adminBookings.innerHTML = '<div class="empty-state">جاري التحميل...</div>';
@@ -1328,10 +1388,7 @@
   function openAdmin(){
     renderAdminList();
     saveBanner.classList.remove('show');
-    tabPricesBtn.classList.add('active');
-    tabBookingsBtn.classList.remove('active');
-    viewPrices.classList.add('active');
-    viewBookings.classList.remove('active');
+    activateTab('prices');
     adminOverlay.classList.add('show');
   }
 
@@ -1614,6 +1671,103 @@
   window.addEventListener('appinstalled', () => {
     installBanner.classList.remove('show');
     deferredInstallPrompt = null;
+  });
+
+  /* ===== Hero image carousel (teacher-facing) ===== */
+  const heroCarousel = document.getElementById('heroCarousel');
+  const heroDots = document.getElementById('heroDots');
+  let heroImagesList = [];
+  let heroIndex = 0;
+  let heroTimer = null;
+
+  function loadHeroCarousel(){
+    db.ref('heroImages').once('value').then(snap => {
+      const val = snap.val() || {};
+      heroImagesList = Object.keys(val).map(k => val[k]);
+      if(heroImagesList.length === 0){
+        heroCarousel.classList.remove('show');
+        return;
+      }
+      heroCarousel.querySelectorAll('img').forEach(el => el.remove());
+      heroImagesList.forEach((src, i) => {
+        const img = document.createElement('img');
+        img.src = src;
+        if(i === 0) img.classList.add('active');
+        heroCarousel.insertBefore(img, heroDots);
+      });
+      heroDots.innerHTML = heroImagesList.map((_, i) =>
+        `<span class="${i===0?'active':''}"></span>`
+      ).join('');
+      heroCarousel.classList.add('show');
+      heroIndex = 0;
+      if(heroTimer) clearInterval(heroTimer);
+      if(heroImagesList.length > 1){
+        heroTimer = setInterval(advanceHero, 4000);
+      }
+    });
+  }
+
+  function advanceHero(){
+    const imgs = heroCarousel.querySelectorAll('img');
+    const dots = heroDots.querySelectorAll('span');
+    if(imgs.length === 0) return;
+    imgs[heroIndex].classList.remove('active');
+    dots[heroIndex].classList.remove('active');
+    heroIndex = (heroIndex + 1) % imgs.length;
+    imgs[heroIndex].classList.add('active');
+    dots[heroIndex].classList.add('active');
+  }
+
+  loadHeroCarousel();
+
+  /* ===== Hero images admin management ===== */
+  const heroImgGrid = document.getElementById('heroImgGrid');
+  const heroFileInput = document.getElementById('heroFileInput');
+  const heroUploadProgress = document.getElementById('heroUploadProgress');
+
+  function renderHeroAdminGrid(){
+    heroImgGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">جاري التحميل...</div>';
+    db.ref('heroImages').once('value').then(snap => {
+      const val = snap.val() || {};
+      const keys = Object.keys(val);
+      if(keys.length === 0){
+        heroImgGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">لا توجد صور بعد، أضف أول صورة بالأسفل</div>';
+        return;
+      }
+      heroImgGrid.innerHTML = keys.map(k => `
+        <div class="img-grid-item" data-key="${k}">
+          <img src="${val[k]}">
+          <button class="rm-img" data-key="${k}">×</button>
+        </div>
+      `).join('');
+      document.querySelectorAll('#heroImgGrid .rm-img').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.dataset.key;
+          db.ref('heroImages/' + key).remove().then(() => {
+            renderHeroAdminGrid();
+            loadHeroCarousel();
+          });
+        });
+      });
+    });
+  }
+
+  heroFileInput.addEventListener('change', async () => {
+    if(!heroFileInput.files.length) return;
+    heroUploadProgress.classList.add('show');
+    const files = Array.from(heroFileInput.files);
+    for(const file of files){
+      try{
+        const compressed = await compressImage(file);
+        await db.ref('heroImages').push().set(compressed);
+      }catch(e){
+        console.error('hero image upload failed', e);
+      }
+    }
+    heroUploadProgress.classList.remove('show');
+    heroFileInput.value = '';
+    renderHeroAdminGrid();
+    loadHeroCarousel();
   });
 </script>
 </body>
