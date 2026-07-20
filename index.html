@@ -710,6 +710,10 @@
       <span>سعر الملزمة الواحدة</span>
       <span class="val" id="rUnit">— دينار</span>
     </div>
+    <div class="result-row" id="rDeliveryRow" style="display:none;">
+      <span>التوصيل</span>
+      <span class="val" id="rDelivery">— دينار</span>
+    </div>
     <div class="total-box">
       <span class="total-label">السعر الكلي</span>
       <span class="total-val" id="rTotal">0 <span>د.ع</span></span>
@@ -960,6 +964,8 @@
   const rPagesTotal = document.getElementById('rPagesTotal');
   const rCover = document.getElementById('rCover');
   const rUnit = document.getElementById('rUnit');
+  const rDeliveryRow = document.getElementById('rDeliveryRow');
+  const rDelivery = document.getElementById('rDelivery');
   const rTotal = document.getElementById('rTotal');
   const contactCard = document.getElementById('contactCard');
   const waBtn = document.getElementById('waBtn');
@@ -1044,18 +1050,31 @@
 
     const pagesTotal = pages * paperPrice;
     const unitPrice = pagesTotal + coverPrice;
-    const totalPrice = unitPrice * copies;
+    const baseTotal = unitPrice * copies;
+
+    const DELIVERY_FEE = 4000;
+    const FREE_DELIVERY_THRESHOLD = 50;
+    const deliveryFee = (copies > 0 && copies < FREE_DELIVERY_THRESHOLD) ? DELIVERY_FEE : 0;
+    const totalPrice = baseTotal + deliveryFee;
 
     rPagePrice.textContent = fmt(paperPrice) + ' دينار';
     rPagesTotal.textContent = fmt(pagesTotal) + ' دينار';
     rCover.textContent = fmt(coverPrice) + ' دينار';
     rUnit.textContent = fmt(unitPrice) + ' دينار';
+
+    if(copies > 0){
+      rDeliveryRow.style.display = 'flex';
+      rDelivery.textContent = deliveryFee > 0 ? (fmt(deliveryFee) + ' دينار') : 'مجاني';
+    } else {
+      rDeliveryRow.style.display = 'none';
+    }
+
     rTotal.innerHTML = fmt(totalPrice) + ' <span>د.ع</span>';
 
     if(pages > 0){
       contactCard.classList.add('show');
 
-      currentCalc = { pages, copies, paperName, coverName, paperPrice, coverPrice, unitPrice, totalPrice };
+      currentCalc = { pages, copies, paperName, coverName, paperPrice, coverPrice, unitPrice, deliveryFee, totalPrice };
 
       const teacherName = teacherNameEl.value.trim();
 
@@ -1068,9 +1087,11 @@
       msg += 'سعر الملزمة الواحدة: ' + fmt(unitPrice) + ' دينار\n';
       if(copies > 0){
         msg += 'عدد الملازم المطلوبة: ' + fmt(copies) + '\n';
+        msg += 'التوصيل: ' + (deliveryFee > 0 ? (fmt(deliveryFee) + ' دينار') : 'مجاني') + '\n';
         msg += 'السعر الكلي: ' + fmt(totalPrice) + ' دينار\n';
       }
       msg += '\nالرجاء تثبيت الحجز، شكراً.';
+
 
       const encoded = encodeURIComponent(msg);
       waBtn.href = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encoded;
@@ -1107,6 +1128,7 @@
       paperName: currentCalc.paperName,
       coverName: currentCalc.coverName,
       unitPrice: currentCalc.unitPrice,
+      deliveryFee: currentCalc.deliveryFee,
       totalPrice: currentCalc.totalPrice
     };
     return db.ref('bookings').push().set(record);
