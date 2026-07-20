@@ -1704,6 +1704,9 @@
       if(heroImagesList.length > 1){
         heroTimer = setInterval(advanceHero, 4000);
       }
+    }).catch(err => {
+      console.error('loadHeroCarousel failed', err);
+      heroCarousel.classList.remove('show');
     });
   }
 
@@ -1727,7 +1730,17 @@
 
   function renderHeroAdminGrid(){
     heroImgGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">جاري التحميل...</div>';
+
+    const timeoutId = setTimeout(() => {
+      heroImgGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">' +
+        'الاتصال بطيء أو توقف. <button id="heroRetryBtn" style="color:var(--navy);font-weight:700;text-decoration:underline;background:none;border:none;">إعادة المحاولة</button>' +
+        '</div>';
+      const retryBtn = document.getElementById('heroRetryBtn');
+      if(retryBtn) retryBtn.addEventListener('click', renderHeroAdminGrid);
+    }, 12000);
+
     db.ref('heroImages').once('value').then(snap => {
+      clearTimeout(timeoutId);
       const val = snap.val() || {};
       const keys = Object.keys(val);
       if(keys.length === 0){
@@ -1749,16 +1762,51 @@
           });
         });
       });
+    }).catch(err => {
+      clearTimeout(timeoutId);
+      console.error('renderHeroAdminGrid failed', err);
+      heroImgGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">' +
+        'تعذر التحميل. <button id="heroRetryBtn2" style="color:var(--navy);font-weight:700;text-decoration:underline;background:none;border:none;">إعادة المحاولة</button>' +
+        '</div>';
+      const retryBtn2 = document.getElementById('heroRetryBtn2');
+      if(retryBtn2) retryBtn2.addEventListener('click', renderHeroAdminGrid);
+    });
+  }
+
+  function compressHeroImage(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 1000;
+          let w = img.width, h = img.height;
+          if(w > h && w > MAX_DIM){ h = Math.round(h * MAX_DIM/w); w = MAX_DIM; }
+          else if(h >= w && h > MAX_DIM){ w = Math.round(w * MAX_DIM/h); h = MAX_DIM; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.55));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
     });
   }
 
   heroFileInput.addEventListener('change', async () => {
     if(!heroFileInput.files.length) return;
     heroUploadProgress.classList.add('show');
-    const files = Array.from(heroFileInput.files);
+    const files = Array.from(heroFileInput.files).slice(0, 8);
+    if(Array.from(heroFileInput.files).length > 8){
+      alert('يمكن رفع 8 صور كحد أقصى دفعة واحدة، حتى تبقى سرعة التطبيق جيدة. سيتم رفع أول 8 صور فقط، وتقدر تضيف الباقي بمجموعة ثانية.');
+    }
     for(const file of files){
       try{
-        const compressed = await compressImage(file);
+        const compressed = await compressHeroImage(file);
         await db.ref('heroImages').push().set(compressed);
       }catch(e){
         console.error('hero image upload failed', e);
