@@ -993,11 +993,13 @@
       pricingData.papers = objToArray(snap.val());
       renderOptions();
       if(adminOverlay.classList.contains('show')) renderAdminList();
+      prefetchAllGalleryImages();
     });
     db.ref('covers').on('value', snap => {
       pricingData.covers = objToArray(snap.val());
       renderOptions();
       if(adminOverlay.classList.contains('show')) renderAdminList();
+      prefetchAllGalleryImages();
     });
   }
 
@@ -1452,20 +1454,59 @@
   let galleryImages = [];
   let galleryIndex = 0;
 
+  const imageCache = {}; // key: "type/id" -> array of image strings
+
+  function fetchGalleryImages(type, id){
+    const cacheKey = type + '/' + id;
+    if(imageCache[cacheKey]){
+      return Promise.resolve(imageCache[cacheKey]);
+    }
+    return db.ref('images/' + type + '/' + id).once('value').then(snap => {
+      const val = snap.val() || {};
+      const arr = Object.keys(val).map(k => val[k]);
+      imageCache[cacheKey] = arr;
+      return arr;
+    });
+  }
+
+  function prefetchAllGalleryImages(){
+    pricingData.papers.forEach(p => {
+      if(p.imageCount > 0) fetchGalleryImages('paper', p.id);
+    });
+    pricingData.covers.forEach(c => {
+      if(c.imageCount > 0) fetchGalleryImages('cover', c.id);
+    });
+  }
+
   function openGallery(type, id){
     const list = type === 'paper' ? pricingData.papers : pricingData.covers;
     const item = list.find(x => x.id === id);
     galleryTitle.textContent = item ? item.name : '';
-    galleryImages = [];
     galleryIndex = 0;
+    galleryOverlay.classList.add('show');
+
+    const cacheKey = type + '/' + id;
+    if(imageCache[cacheKey]){
+      // Already cached - show instantly, no loading state at all
+      galleryImages = imageCache[cacheKey];
+      if(galleryImages.length === 0){
+        galleryImg.src = '';
+        galleryCounter.textContent = 'لا توجد صور';
+        galleryThumbs.innerHTML = '';
+      } else {
+        renderGallery();
+      }
+      return;
+    }
+
+    // Not cached yet (first time, or connection was offline on page load) - fetch now
+    galleryImages = [];
     galleryImg.src = '';
     galleryCounter.textContent = 'جاري التحميل...';
     galleryThumbs.innerHTML = '';
-    galleryOverlay.classList.add('show');
 
-    db.ref('images/' + type + '/' + id).once('value').then(snap => {
-      const val = snap.val() || {};
-      galleryImages = Object.keys(val).map(k => val[k]);
+    fetchGalleryImages(type, id).then(arr => {
+      galleryImages = arr;
       if(galleryImages.length === 0){
         galleryCounter.textContent = 'لا توجد صور';
         return;
@@ -1562,6 +1603,7 @@
           db.ref('images/' + type + '/' + id + '/' + key).remove().then(() => {
             const node = type === 'paper' ? 'papers' : 'covers';
             db.ref(node + '/' + id + '/imageCount').transaction(cur => Math.max((cur||0)-1, 0));
+            delete imageCache[type + '/' + id];
             renderImgGrid();
           });
         });
@@ -1614,6 +1656,7 @@
 
     if(addedCount > 0){
       db.ref(node + '/' + id + '/imageCount').transaction(cur => (cur||0) + addedCount);
+      delete imageCache[type + '/' + id];
     }
 
     uploadProgress.classList.remove('show');
